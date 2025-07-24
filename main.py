@@ -32,7 +32,7 @@ async def process_csv(file: UploadFile = File(...)):
         with temp_file_path.open("wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
-        python_script_path = Path("./clean_automate_csv.py")
+        python_script_path = Path(__file__).parent / "clean_automate_csv.py"
         if not python_script_path.exists():
             raise HTTPException(status_code=500, detail="Python script not found.")
 
