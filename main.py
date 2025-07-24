@@ -9,13 +9,16 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://diary-lab-diego-centella-jalafunds-projects.vercel.app"],  
+    allow_origins=["https://diary-lab-diego-centella-jalafunds-projects.vercel.app"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-    
+@app.get("/")
+async def root():
+    return {"message": "FastAPI microservice is running"}
+
 @app.post("/process-csv")
 async def process_csv(file: UploadFile = File(...)):
     if not file.filename.endswith(".csv"):
@@ -29,7 +32,7 @@ async def process_csv(file: UploadFile = File(...)):
         with temp_file_path.open("wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
-        python_script_path = Path("clean_automate_csv.py")  
+        python_script_path = Path("clean_automate_csv.py")
         if not python_script_path.exists():
             raise HTTPException(status_code=500, detail="Python script not found.")
 
@@ -42,6 +45,7 @@ async def process_csv(file: UploadFile = File(...)):
 
         if result.returncode != 0:
             raise HTTPException(status_code=500, detail=f"Python script error: {result.stderr}")
+
         if not cleaned_file_path.exists():
             raise HTTPException(status_code=500, detail="Cleaned CSV file not found.")
 
