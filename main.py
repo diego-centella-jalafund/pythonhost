@@ -4,6 +4,11 @@ import os
 import shutil
 from pathlib import Path
 import subprocess
+from fastapi.responses import JSONResponse
+import pandas as pd
+import joblib
+from datetime import datetime
+import os
 
 app = FastAPI()
 
@@ -14,6 +19,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+MODEL_PATH = os.getenv("MODEL_PATH", "./acidity_model.pkl")
+model = joblib.load(MODEL_PATH)
+
+DATA_PATH = os.getenv("DATA_PATH", "./raw_milk_data.csv")
 
 @app.get("/")
 async def root():
@@ -57,3 +67,26 @@ async def process_csv(file: UploadFile = File(...)):
         for path in [temp_file_path, cleaned_file_path]:
             if path.exists():
                 path.unlink()
+
+@app.get("/predict-acidity")
+async def predict_acidity():
+    try:
+        df = pd.read_csv(DATA_PATH)
+        
+        features = df[['evening_temperature', 'ph_20c_evening', 'fat_content_evening']].fillna(0)
+        dates = df['date'].tolist()
+        
+
+        predictions = model.predict(features)
+
+        formatted_predictions = [
+            {
+                "date": date,
+                "titratable_acidity_predicted": float(pred)
+            }
+            for date, pred in zip(dates, predictions)
+        ]
+        
+        return {"predictions": formatted_predictions}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error making predictions: {str(e)}")
