@@ -21,7 +21,12 @@ app.add_middleware(
 )
 
 MODEL_PATH = os.getenv("MODEL_PATH", "./acidity_model.pkl")
-model = joblib.load(MODEL_PATH)
+try:
+    model = joblib.load(MODEL_PATH)
+except FileNotFoundError:
+    raise Exception(f"Model file not found at {MODEL_PATH}")
+
+
 
 DATA_PATH = os.getenv("DATA_PATH", "./raw_milk_data.csv")
 
@@ -71,14 +76,29 @@ async def process_csv(file: UploadFile = File(...)):
 @app.get("/predict-acidity")
 async def predict_acidity():
     try:
+        if not os.path.exists(DATA_PATH):
+            raise HTTPException(status_code=400, detail=f"CSV file not found at {DATA_PATH}")
+        
         df = pd.read_csv(DATA_PATH)
         
-        features = df[['evening_temperature', 'ph_20c_evening', 'fat_content_evening']].fillna(0)
-        dates = df['date'].tolist()
+        print(f"DataFrame columns: {df.columns.tolist()}")
+        print(f"DataFrame rows: {len(df)}")
         
+        if df.empty:
+            raise HTTPException(status_code=400, detail="No data found in CSV file")
+
+        required_columns = ['temperature', 'ph_20c', 'density_20c']
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            raise HTTPException(status_code=400, detail=f"Missing columns in CSV: {missing_columns}")
+        
+        features = df[required_columns].fillna(0)
+
+        base_date = datetime(2024, 1, 1)
+        dates = df['days_since_start'].apply(lambda x: (base_date + timedelta(days=int(x))).strftime('%Y-%m-%d')).tolist()
 
         predictions = model.predict(features)
-
+ 
         formatted_predictions = [
             {
                 "date": date,
