@@ -76,37 +76,36 @@ async def process_csv(file: UploadFile = File(...)):
 @app.get("/predict-acidity")
 async def predict_acidity():
     try:
-        if not os.path.exists(DATA_PATH):
-            raise HTTPException(status_code=400, detail=f"CSV file not found at {DATA_PATH}")
-        
-        df = pd.read_csv(DATA_PATH)
-        
-        print(f"DataFrame columns: {df.columns.tolist()}")
-        print(f"DataFrame rows: {len(df)}")
-        
-        if df.empty:
-            raise HTTPException(status_code=400, detail="No data found in CSV file")
+        last_date = datetime.now().date()
+        reference_date = pd.to_datetime('2024-04-14').date()
+        days_since_start = (last_date - reference_date).days
+        avg_temperature = 20.0
+        avg_ph_20c = 6.7
+        avg_density_20c = 1.030
 
-        required_columns = ['temperature', 'ph_20c', 'density_20c']
-        missing_columns = [col for col in required_columns if col not in df.columns]
-        if missing_columns:
-            raise HTTPException(status_code=400, detail=f"Missing columns in CSV: {missing_columns}")
-        
-        features = df[required_columns].fillna(0)
+        predictions = []
+        for i in range(1, 21):
+            future_day = days_since_start + i
+            future_date = last_date + timedelta(days=i)
+            temperature = np.clip(avg_temperature + np.random.uniform(-0.5, 0.5), 15, 25)
+            ph_20c = np.clip(avg_ph_20c + np.random.uniform(-0.02, 0.02), 6.60, 6.80)
+            density_20c = np.clip(avg_density_20c + np.random.uniform(-0.001, 0.001), 1.028, 1.034)
+            
+            future_data = pd.DataFrame({
+                'days_since_start': [future_day],
+                'temperature': [temperature],
+                'ph_20c': [ph_20c],
+                'density_20c': [density_20c]
+            })
 
-        base_date = datetime(2024, 1, 1)
-        dates = df['days_since_start'].apply(lambda x: (base_date + timedelta(days=int(x))).strftime('%Y-%m-%d')).tolist()
+            acidity_predicted = model.predict(future_data)[0]
+            acidity_predicted = np.clip(acidity_predicted, 0.13, 0.18)
 
-        predictions = model.predict(features)
- 
-        formatted_predictions = [
-            {
-                "date": date,
-                "titratable_acidity_predicted": float(pred)
-            }
-            for date, pred in zip(dates, predictions)
-        ]
-        
-        return {"predictions": formatted_predictions}
+            predictions.append({
+                'date': future_date.strftime('%Y-%m-%d'),
+                'titratable_acidity_predicted': round(float(acidity_predicted), 3)
+            })
+
+        return {"predictions": predictions}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error making predictions: {str(e)}")
