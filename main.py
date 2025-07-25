@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 import pandas as pd
 import joblib
 from datetime import datetime, timedelta
+import numpy as np
 import os
 
 app = FastAPI()
