@@ -27,8 +27,6 @@ try:
 except FileNotFoundError:
     raise Exception(f"Model file not found at {MODEL_PATH}")
 
-
-
 DATA_PATH = os.getenv("DATA_PATH", "./raw_milk_data.csv")
 
 @app.get("/")
